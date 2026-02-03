@@ -1,5 +1,7 @@
 # GitHub Copilot Taskbar GUI
 
+<img width="1002" height="657" alt="Screenshot 2026-02-03 010803" src="https://github.com/user-attachments/assets/01d43924-95e5-489b-a352-7bdc80855e2f" />
+
 > **Work in Progress**: Experimental proof-of-concept for deep OS integration with GitHub Copilot. APIs and features subject to change.
 
 .NET 10 WinUI 3 desktop application providing system tray access to GitHub Copilot CLI with automatic context awareness. Detects active focus, open applications, file system state, and running services to augment prompts with relevant environment information.
@@ -12,7 +14,7 @@
   - Active window focus (Explorer paths, Terminal with WSL distribution detection, IDEs)
   - Open applications and visible windows
   - Background services (Docker, databases, language servers)
-  - WSL distributions with smart Unix prompt detection
+  - WSL distributions with smart Linux prompt detection
   - Environment variables (PYTHONPATH, NODE_ENV, DOTNET_ROOT, filtered PATH, etc.)
   - Screenshot capture when context ambiguous (LLM vision only when needed)
 - **Conversation History**: Last 10 messages included for context continuity
@@ -164,7 +166,7 @@ Detailed diagnostics are available in VS Code Debug Console:
 **Setup**:
 1. Open project in VS Code
 2. Press **F5** to start debugging (or Run → Start Debugging)
-3. Debug Console opens automatically showing all output
+3. Debug Console opens automatically showing all output, filter by [CopilotService]
 
 **What You'll See**:
 ```
@@ -196,8 +198,6 @@ If timeout occurs:
 [CopilotService] Timeout details: SendAndWaitAsync timed out after 00:05:00
 [CopilotService] Stack trace: ...
 ```
-
-**Launch Configuration**: See `.vscode/launch.json` for ARM64/x64 debug settings
 
 ## Known Issues
 
