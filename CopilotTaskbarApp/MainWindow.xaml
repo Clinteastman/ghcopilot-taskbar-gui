@@ -208,7 +208,7 @@
             </Grid.ColumnDefinitions>
 
             <TextBox Grid.Column="0" x:Name="InputBox"
-                     PlaceholderText="Ask GitHub Copilot..."
+                     PlaceholderText="Ask your CLI assistant..."
                      AcceptsReturn="False"
                      TextWrapping="NoWrap"
                      IsSpellCheckEnabled="False"

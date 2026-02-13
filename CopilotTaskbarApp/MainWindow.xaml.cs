@@ -19,6 +19,7 @@ public sealed partial class MainWindow : Window
     private readonly ContextService _contextService;
     private readonly PersistenceService _persistenceService;
     private WinForms.NotifyIcon? _notifyIcon;
+    private CopilotCliStatus _cliStatus = CopilotCliStatus.NotInstalled;
     
     // Avatar images
     private string? _userDisplayName;
@@ -67,7 +68,7 @@ public sealed partial class MainWindow : Window
         CheckCopilotCli();
         LoadAvatarImages();
         
-        Title = "GitHub Copilot Chat";
+        Title = "CLI AI Chat";
         
         // Use DesktopAcrylic for "Start Menu" like transparency
         // This requires Windows 10 1809+ (Build 17763)
@@ -314,19 +315,22 @@ public sealed partial class MainWindow : Window
             InputBox.IsEnabled = false;
 
             // Check if Copilot CLI is installed
-            var status = await CopilotCliDetector.CheckCopilotCliAsync();
+            _cliStatus = await CopilotCliDetector.CheckCopilotCliAsync();
+            _copilotService.SetCliCommand(_cliStatus.CliCommand);
 
-            if (!status.IsInstalled)
+            if (!_cliStatus.IsInstalled)
             {
                 // CLI not found - show message only
                 var installMessage = new ChatMessage
                 {
                     Role = "system",
-                    Content = "GitHub Copilot CLI is not installed.\n\n" +
+                    Content = "No supported CLI was found (GitHub Copilot, Claude Code, or OpenCode).\n\n" +
                               "Installation options:\n" +
                               "1. Via winget: winget install --id GitHub.Copilot\n" +
-                              "2. Via GitHub CLI: gh extension install github/gh-copilot\n" +
-                              "3. Download from: https://docs.github.com/en/copilot/cli\n\n" +
+                              "2. Claude Code: https://docs.anthropic.com/en/docs/claude-code\n" +
+                              "3. OpenCode: https://opencode.ai/docs\n" +
+                              "4. Via GitHub CLI: gh extension install github/gh-copilot\n" +
+                              "5. Download from: https://docs.github.com/en/copilot/cli\n\n" +
                               "After installation, restart this application.",
                     Timestamp = DateTime.Now,
                     AvatarImagePath = _copilotAvatarPath
@@ -382,7 +386,7 @@ public sealed partial class MainWindow : Window
                 var welcomeMessage = new ChatMessage
                 {
                     Role = "system", // Change to system to hide copy button
-                    Content = "Connected to GitHub Copilot!",
+                    Content = $"Connected to {_cliStatus.CliName}!" + (!string.IsNullOrWhiteSpace(_cliStatus.Version) ? $"\n{_cliStatus.Version}" : ""),
                     Timestamp = DateTime.Now,
                     AvatarImagePath = _copilotAvatarPath
                 };
@@ -417,7 +421,7 @@ public sealed partial class MainWindow : Window
         {
             _notifyIcon = new WinForms.NotifyIcon
             {
-                Text = "GitHub Copilot Chat",
+                Text = "CLI AI Chat",
                 Visible = true
             };
 

@@ -8,13 +8,33 @@ public class CopilotCliDetector
 {
     public static async Task<CopilotCliStatus> CheckCopilotCliAsync()
     {
+        var candidates = new[]
+        {
+            new { Command = "copilot", Name = "GitHub Copilot", VersionArgs = "--version" },
+            new { Command = "claude", Name = "Claude Code", VersionArgs = "--version" },
+            new { Command = "opencode", Name = "OpenCode", VersionArgs = "--version" }
+        };
+
+        foreach (var candidate in candidates)
+        {
+            var status = await CheckCliAsync(candidate.Command, candidate.Name, candidate.VersionArgs);
+            if (status.IsInstalled)
+            {
+                return status;
+            }
+        }
+
+        return CopilotCliStatus.NotInstalled;
+    }
+
+    private static async Task<CopilotCliStatus> CheckCliAsync(string command, string displayName, string versionArgs)
+    {
         try
         {
-            // Try to run copilot --version
             var psi = new ProcessStartInfo
             {
-                FileName = "copilot",
-                Arguments = "--version",
+                FileName = command,
+                Arguments = versionArgs,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -35,7 +55,9 @@ public class CopilotCliDetector
                 return new CopilotCliStatus 
                 { 
                     IsInstalled = true, 
-                    Version = version.Trim() 
+                    Version = version.Trim(),
+                    CliCommand = command,
+                    CliName = displayName
                 };
             }
 
@@ -112,6 +134,8 @@ public class CopilotCliStatus
     public bool IsInstalled { get; set; }
     public string? Version { get; set; }
     public string? Error { get; set; }
+    public string CliCommand { get; set; } = "copilot";
+    public string CliName { get; set; } = "GitHub Copilot";
 
     public static CopilotCliStatus NotInstalled => new() { IsInstalled = false };
 }

@@ -46,8 +46,8 @@ public class ChatMessage : INotifyPropertyChanged
             return Role switch
             {
                 "user" => "You",
-                "assistant" => "GitHub Copilot",
-                "system" => "GitHub Copilot",
+                "assistant" => "Assistant",
+                "system" => "Assistant",
                 _ => Role
             };
         }
@@ -56,8 +56,8 @@ public class ChatMessage : INotifyPropertyChanged
     public string AvatarInitial => Role switch
     {
         "user" => "U",
-        "assistant" => "C",
-        "system" => "C",
+        "assistant" => "A",
+        "system" => "A",
         _ => "?"
     };
 
