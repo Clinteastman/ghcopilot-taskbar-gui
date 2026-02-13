@@ -11,6 +11,8 @@ namespace CopilotTaskbarApp;
 
 public class CopilotService : IAsyncDisposable
 {
+    private const int ExternalCliTimeoutSeconds = 300;
+
     private readonly CopilotClient _client;
     private object? _session; 
     private bool _isStarted;
@@ -23,7 +25,8 @@ public class CopilotService : IAsyncDisposable
 
     public void SetCliCommand(string cliCommand)
     {
-        _cliCommand = string.IsNullOrWhiteSpace(cliCommand) ? "copilot" : cliCommand.Trim().ToLowerInvariant();
+        var normalized = string.IsNullOrWhiteSpace(cliCommand) ? "copilot" : cliCommand.Trim().ToLowerInvariant();
+        _cliCommand = normalized is "copilot" or "claude" or "opencode" ? normalized : "copilot";
     }
 
     private async Task EnsureStartedAsync(CancellationToken cancellationToken = default)
@@ -264,7 +267,10 @@ public class CopilotService : IAsyncDisposable
             return $"Failed to start {_cliCommand}.";
         }
 
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(300));
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
+
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(ExternalCliTimeoutSeconds));
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
 
         try
@@ -273,11 +279,15 @@ public class CopilotService : IAsyncDisposable
         }
         catch (OperationCanceledException)
         {
-            return $"Request timed out after 300 seconds while waiting for {_cliCommand}.";
+            if (!process.HasExited)
+            {
+                process.Kill(true);
+            }
+            return $"Request timed out after {ExternalCliTimeoutSeconds} seconds while waiting for {_cliCommand}.";
         }
 
-        var output = (await process.StandardOutput.ReadToEndAsync()).Trim();
-        var error = (await process.StandardError.ReadToEndAsync()).Trim();
+        var output = (await outputTask).Trim();
+        var error = (await errorTask).Trim();
 
         if (process.ExitCode == 0 && !string.IsNullOrWhiteSpace(output))
         {

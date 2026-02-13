@@ -29,6 +29,11 @@ public class CopilotCliDetector
 
     private static async Task<CopilotCliStatus> CheckCliAsync(string command, string displayName, string versionArgs)
     {
+        if (command is not ("copilot" or "claude" or "opencode"))
+        {
+            return CopilotCliStatus.NotInstalled;
+        }
+
         try
         {
             var psi = new ProcessStartInfo
