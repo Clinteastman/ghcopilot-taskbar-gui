@@ -4,7 +4,7 @@
 
 > **Work in Progress**: Experimental proof-of-concept for deep OS integration with GitHub Copilot. APIs and features subject to change.
 
-.NET 10 WinUI 3 desktop application providing system tray access to GitHub Copilot CLI with automatic context awareness. Detects active focus, open applications, file system state, and running services to augment prompts with relevant environment information.
+.NET 10 WinUI 3 desktop application providing system tray access to CLI coding assistants (GitHub Copilot, Claude Code, or OpenCode) with automatic context awareness. Detects active focus, open applications, file system state, and running services to augment prompts with relevant environment information.
 
 ## Features
 
@@ -29,10 +29,9 @@
 
 - Windows 10 1809+ (Windows 11 recommended)
 - .NET 10 SDK
-- GitHub Copilot subscription
-- GitHub Copilot CLI
+- At least one supported CLI: GitHub Copilot CLI, Claude Code CLI, or OpenCode CLI
 
-### Installing Copilot CLI
+### Installing a Supported CLI
 
 The SDK requires separate CLI installation:
 
@@ -45,6 +44,12 @@ gh extension install github/gh-copilot
 
 # Verify
 copilot --version
+```
+
+Alternative CLIs:
+```powershell
+claude --version
+opencode --version
 ```
 
 Authentication:
@@ -65,6 +70,8 @@ dotnet run
 ## Usage
 
 Run `CopilotTaskbarApp.exe`. Application icon appears in system tray. Click to open chat interface.
+
+Choose backend in the bottom selector: `Auto`, `Copilot`, `Claude`, or `OpenCode`.
 
 **First Run**:
 1. CLI detection runs automatically

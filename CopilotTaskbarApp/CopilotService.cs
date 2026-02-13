@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,17 +11,31 @@ namespace CopilotTaskbarApp;
 
 public class CopilotService : IAsyncDisposable
 {
+    private const int ExternalCliTimeoutSeconds = 300;
+
     private readonly CopilotClient _client;
     private object? _session; 
     private bool _isStarted;
+    private string _cliCommand = "copilot";
 
     public CopilotService()
     {
         _client = new CopilotClient();
     }
 
+    public void SetCliCommand(string cliCommand)
+    {
+        var normalized = string.IsNullOrWhiteSpace(cliCommand) ? "copilot" : cliCommand.Trim().ToLowerInvariant();
+        _cliCommand = normalized is "copilot" or "claude" or "opencode" ? normalized : "copilot";
+    }
+
     private async Task EnsureStartedAsync(CancellationToken cancellationToken = default)
     {
+        if (_cliCommand != "copilot")
+        {
+            return;
+        }
+
         if (!_isStarted)
         {
             try
@@ -46,6 +61,11 @@ public class CopilotService : IAsyncDisposable
 
     public async Task<string> GetResponseAsync(string prompt, string? context = null, string? imageBase64 = null, List<ChatMessage>? recentMessages = null, CancellationToken cancellationToken = default)
     {
+        if (_cliCommand != "copilot")
+        {
+            return await GetExternalCliResponseAsync(prompt, context, recentMessages, cancellationToken);
+        }
+
         var methodStartTime = DateTime.UtcNow;
         System.Diagnostics.Debug.WriteLine($"[CopilotService] ===== GetResponseAsync START at {methodStartTime:HH:mm:ss.fff} =====");
         
@@ -202,9 +222,94 @@ public class CopilotService : IAsyncDisposable
         }
     }
 
+    private async Task<string> GetExternalCliResponseAsync(string prompt, string? context, List<ChatMessage>? recentMessages, CancellationToken cancellationToken)
+    {
+        var fullPrompt = prompt;
+        if (!string.IsNullOrWhiteSpace(context))
+        {
+            fullPrompt = $"Context:\n{context}\n\nQuestion:\n{prompt}";
+        }
+
+        if (recentMessages != null && recentMessages.Count > 0)
+        {
+            var relevant = recentMessages.Skip(Math.Max(0, recentMessages.Count - 6));
+            var history = string.Join("\n", relevant.Select(m => $"{(m.Role == "user" ? "User" : "Assistant")}: {m.Content}"));
+            fullPrompt = $"Recent conversation:\n{history}\n\n{fullPrompt}";
+        }
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = _cliCommand,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        if (_cliCommand == "claude")
+        {
+            psi.ArgumentList.Add("-p");
+            psi.ArgumentList.Add(fullPrompt);
+        }
+        else if (_cliCommand == "opencode")
+        {
+            psi.ArgumentList.Add("run");
+            psi.ArgumentList.Add(fullPrompt);
+        }
+        else
+        {
+            return $"Unsupported CLI provider: {_cliCommand}";
+        }
+
+        using var process = Process.Start(psi);
+        if (process == null)
+        {
+            return $"Failed to start {_cliCommand}.";
+        }
+
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
+
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(ExternalCliTimeoutSeconds));
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+        try
+        {
+            await process.WaitForExitAsync(linkedCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(true);
+            }
+            return $"Request timed out after {ExternalCliTimeoutSeconds} seconds while waiting for {_cliCommand}.";
+        }
+
+        var output = (await outputTask).Trim();
+        var error = (await errorTask).Trim();
+
+        if (process.ExitCode == 0 && !string.IsNullOrWhiteSpace(output))
+        {
+            return output;
+        }
+
+        if (!string.IsNullOrWhiteSpace(error))
+        {
+            return $"Error from {_cliCommand}: {error}";
+        }
+
+        return $"No response received from {_cliCommand}.";
+    }
+
     // Checks if the Copilot CLI is ready and authenticated
     public async Task<bool> CheckAuthenticationAsync()
     {
+        if (_cliCommand != "copilot")
+        {
+            return true;
+        }
+
         try
         {
             await EnsureStartedAsync();

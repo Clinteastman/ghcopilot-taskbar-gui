@@ -19,6 +19,9 @@ public sealed partial class MainWindow : Window
     private readonly ContextService _contextService;
     private readonly PersistenceService _persistenceService;
     private WinForms.NotifyIcon? _notifyIcon;
+    private CopilotCliStatus _cliStatus = CopilotCliStatus.NotInstalled;
+    private string _selectedCliCommand = "auto";
+    private bool _isInitializingBackendSelector = true;
     
     // Avatar images
     private string? _userDisplayName;
@@ -64,10 +67,12 @@ public sealed partial class MainWindow : Window
         
         // Don't load old history
         // LoadChatHistory();
-        CheckCopilotCli();
+        BackendSelector.SelectedIndex = 0;
+        _isInitializingBackendSelector = false;
+        _ = CheckCopilotCliAsync();
         LoadAvatarImages();
         
-        Title = "GitHub Copilot Chat";
+        Title = "CLI AI Chat";
         
         // Use DesktopAcrylic for "Start Menu" like transparency
         // This requires Windows 10 1809+ (Build 17763)
@@ -306,28 +311,37 @@ public sealed partial class MainWindow : Window
         Application.Current.Exit();
     }
 
-    private async void CheckCopilotCli()
+    private async Task CheckCopilotCliAsync()
     {
         try
         {
             SendButton.IsEnabled = false;
             InputBox.IsEnabled = false;
 
-            // Check if Copilot CLI is installed
-            var status = await CopilotCliDetector.CheckCopilotCliAsync();
+            _selectedCliCommand = GetSelectedBackendCommand();
+            _cliStatus = _selectedCliCommand == "auto"
+                ? await CopilotCliDetector.CheckCopilotCliAsync()
+                : await CopilotCliDetector.CheckCliByCommandAsync(_selectedCliCommand);
 
-            if (!status.IsInstalled)
+            _copilotService.SetCliCommand(_cliStatus.CliCommand);
+
+            if (!_cliStatus.IsInstalled)
             {
-                // CLI not found - show message only
+                var selectedName = GetCliDisplayName(_selectedCliCommand);
                 var installMessage = new ChatMessage
                 {
                     Role = "system",
-                    Content = "GitHub Copilot CLI is not installed.\n\n" +
-                              "Installation options:\n" +
-                              "1. Via winget: winget install --id GitHub.Copilot\n" +
-                              "2. Via GitHub CLI: gh extension install github/gh-copilot\n" +
-                              "3. Download from: https://docs.github.com/en/copilot/cli\n\n" +
-                              "After installation, restart this application.",
+                    Content = _selectedCliCommand == "auto"
+                        ? "No supported CLI was found (GitHub Copilot, Claude Code, or OpenCode).\n\n" +
+                          "Installation options:\n" +
+                          "1. Via winget: winget install --id GitHub.Copilot\n" +
+                          "2. Claude Code: https://docs.anthropic.com/en/docs/claude-code\n" +
+                          "3. OpenCode: https://opencode.ai/docs\n" +
+                          "4. Via GitHub CLI: gh extension install github/gh-copilot\n" +
+                          "5. Download from: https://docs.github.com/en/copilot/cli\n\n" +
+                          "After installation, restart this application."
+                        : $"{selectedName} is not installed or not available in PATH.\n\n" +
+                          "Please install it, or switch Backend to Auto in the selector.",
                     Timestamp = DateTime.Now,
                     AvatarImagePath = _copilotAvatarPath
                 };
@@ -353,6 +367,36 @@ public sealed partial class MainWindow : Window
 
         SendButton.IsEnabled = true;
         InputBox.IsEnabled = true;
+    }
+
+    private static string GetCliDisplayName(string cliCommand) => cliCommand switch
+    {
+        "copilot" => "GitHub Copilot",
+        "claude" => "Claude Code",
+        "opencode" => "OpenCode",
+        _ => "Selected backend"
+    };
+
+    private string GetSelectedBackendCommand()
+    {
+        if (BackendSelector.SelectedItem is ComboBoxItem item &&
+            item.Tag is string tag &&
+            !string.IsNullOrWhiteSpace(tag))
+        {
+            return tag.ToLowerInvariant();
+        }
+
+        return "auto";
+    }
+
+    private async void BackendSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializingBackendSelector)
+        {
+            return;
+        }
+
+        await CheckCopilotCliAsync();
     }
 
     private async Task CheckAuthenticationAsync()
@@ -382,7 +426,7 @@ public sealed partial class MainWindow : Window
                 var welcomeMessage = new ChatMessage
                 {
                     Role = "system", // Change to system to hide copy button
-                    Content = "Connected to GitHub Copilot!",
+                    Content = $"Connected to {_cliStatus.CliName}!" + (!string.IsNullOrWhiteSpace(_cliStatus.Version) ? $"\n{_cliStatus.Version}" : ""),
                     Timestamp = DateTime.Now,
                     AvatarImagePath = _copilotAvatarPath
                 };
@@ -417,7 +461,7 @@ public sealed partial class MainWindow : Window
         {
             _notifyIcon = new WinForms.NotifyIcon
             {
-                Text = "GitHub Copilot Chat",
+                Text = "CLI AI Chat",
                 Visible = true
             };
 
