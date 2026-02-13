@@ -69,7 +69,7 @@ public sealed partial class MainWindow : Window
         // LoadChatHistory();
         BackendSelector.SelectedIndex = 0;
         _isInitializingBackendSelector = false;
-        CheckCopilotCli();
+        _ = CheckCopilotCliAsync();
         LoadAvatarImages();
         
         Title = "CLI AI Chat";
@@ -311,7 +311,7 @@ public sealed partial class MainWindow : Window
         Application.Current.Exit();
     }
 
-    private async void CheckCopilotCli()
+    private async Task CheckCopilotCliAsync()
     {
         try
         {
@@ -383,20 +383,20 @@ public sealed partial class MainWindow : Window
             item.Tag is string tag &&
             !string.IsNullOrWhiteSpace(tag))
         {
-            return tag.Trim().ToLowerInvariant();
+            return tag.ToLowerInvariant();
         }
 
         return "auto";
     }
 
-    private void BackendSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void BackendSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_isInitializingBackendSelector)
         {
             return;
         }
 
-        CheckCopilotCli();
+        await CheckCopilotCliAsync();
     }
 
     private async Task CheckAuthenticationAsync()
