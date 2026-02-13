@@ -20,6 +20,8 @@ public sealed partial class MainWindow : Window
     private readonly PersistenceService _persistenceService;
     private WinForms.NotifyIcon? _notifyIcon;
     private CopilotCliStatus _cliStatus = CopilotCliStatus.NotInstalled;
+    private string _selectedCliCommand = "auto";
+    private bool _isInitializingBackendSelector = true;
     
     // Avatar images
     private string? _userDisplayName;
@@ -65,6 +67,8 @@ public sealed partial class MainWindow : Window
         
         // Don't load old history
         // LoadChatHistory();
+        BackendSelector.SelectedIndex = 0;
+        _isInitializingBackendSelector = false;
         CheckCopilotCli();
         LoadAvatarImages();
         
@@ -314,24 +318,30 @@ public sealed partial class MainWindow : Window
             SendButton.IsEnabled = false;
             InputBox.IsEnabled = false;
 
-            // Check if Copilot CLI is installed
-            _cliStatus = await CopilotCliDetector.CheckCopilotCliAsync();
+            _selectedCliCommand = GetSelectedBackendCommand();
+            _cliStatus = _selectedCliCommand == "auto"
+                ? await CopilotCliDetector.CheckCopilotCliAsync()
+                : await CopilotCliDetector.CheckCliByCommandAsync(_selectedCliCommand);
+
             _copilotService.SetCliCommand(_cliStatus.CliCommand);
 
             if (!_cliStatus.IsInstalled)
             {
-                // CLI not found - show message only
+                var selectedName = GetCliDisplayName(_selectedCliCommand);
                 var installMessage = new ChatMessage
                 {
                     Role = "system",
-                    Content = "No supported CLI was found (GitHub Copilot, Claude Code, or OpenCode).\n\n" +
-                              "Installation options:\n" +
-                              "1. Via winget: winget install --id GitHub.Copilot\n" +
-                              "2. Claude Code: https://docs.anthropic.com/en/docs/claude-code\n" +
-                              "3. OpenCode: https://opencode.ai/docs\n" +
-                              "4. Via GitHub CLI: gh extension install github/gh-copilot\n" +
-                              "5. Download from: https://docs.github.com/en/copilot/cli\n\n" +
-                              "After installation, restart this application.",
+                    Content = _selectedCliCommand == "auto"
+                        ? "No supported CLI was found (GitHub Copilot, Claude Code, or OpenCode).\n\n" +
+                          "Installation options:\n" +
+                          "1. Via winget: winget install --id GitHub.Copilot\n" +
+                          "2. Claude Code: https://docs.anthropic.com/en/docs/claude-code\n" +
+                          "3. OpenCode: https://opencode.ai/docs\n" +
+                          "4. Via GitHub CLI: gh extension install github/gh-copilot\n" +
+                          "5. Download from: https://docs.github.com/en/copilot/cli\n\n" +
+                          "After installation, restart this application."
+                        : $"{selectedName} is not installed or not available in PATH.\n\n" +
+                          "Please install it, or switch Backend to Auto in the selector.",
                     Timestamp = DateTime.Now,
                     AvatarImagePath = _copilotAvatarPath
                 };
@@ -357,6 +367,36 @@ public sealed partial class MainWindow : Window
 
         SendButton.IsEnabled = true;
         InputBox.IsEnabled = true;
+    }
+
+    private static string GetCliDisplayName(string cliCommand) => cliCommand switch
+    {
+        "copilot" => "GitHub Copilot",
+        "claude" => "Claude Code",
+        "opencode" => "OpenCode",
+        _ => "Selected backend"
+    };
+
+    private string GetSelectedBackendCommand()
+    {
+        if (BackendSelector.SelectedItem is ComboBoxItem item &&
+            item.Tag is string tag &&
+            !string.IsNullOrWhiteSpace(tag))
+        {
+            return tag.Trim().ToLowerInvariant();
+        }
+
+        return "auto";
+    }
+
+    private void BackendSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializingBackendSelector)
+        {
+            return;
+        }
+
+        CheckCopilotCli();
     }
 
     private async Task CheckAuthenticationAsync()

@@ -205,6 +205,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
             <TextBox Grid.Column="0" x:Name="InputBox"
@@ -218,7 +219,21 @@
                      VerticalAlignment="Center"
                      FontSize="{StaticResource StandardFontSize}"/>
 
-            <Button Grid.Column="1" x:Name="SendButton"
+            <ComboBox Grid.Column="1"
+                      x:Name="BackendSelector"
+                      Width="150"
+                      Margin="0,0,8,0"
+                      VerticalAlignment="Center"
+                      SelectedIndex="0"
+                      SelectionChanged="BackendSelector_SelectionChanged"
+                      ToolTipService.ToolTip="Select backend provider">
+                <ComboBoxItem Content="Auto" Tag="auto"/>
+                <ComboBoxItem Content="Copilot" Tag="copilot"/>
+                <ComboBoxItem Content="Claude" Tag="claude"/>
+                <ComboBoxItem Content="OpenCode" Tag="opencode"/>
+            </ComboBox>
+
+            <Button Grid.Column="2" x:Name="SendButton"
                     Style="{StaticResource AccentButtonStyle}"
                     Click="SendButton_Click"
                     Margin="0,0,0,0"

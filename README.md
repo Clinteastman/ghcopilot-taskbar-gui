@@ -71,6 +71,8 @@ dotnet run
 
 Run `CopilotTaskbarApp.exe`. Application icon appears in system tray. Click to open chat interface.
 
+Choose backend in the bottom selector: `Auto`, `Copilot`, `Claude`, or `OpenCode`.
+
 **First Run**:
 1. CLI detection runs automatically
 2. If missing, offers winget installation

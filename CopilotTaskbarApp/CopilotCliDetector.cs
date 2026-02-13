@@ -6,6 +6,18 @@ namespace CopilotTaskbarApp;
 
 public class CopilotCliDetector
 {
+    public static Task<CopilotCliStatus> CheckCliByCommandAsync(string command)
+    {
+        var normalized = string.IsNullOrWhiteSpace(command) ? "copilot" : command.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "copilot" => CheckCliAsync("copilot", "GitHub Copilot", "--version"),
+            "claude" => CheckCliAsync("claude", "Claude Code", "--version"),
+            "opencode" => CheckCliAsync("opencode", "OpenCode", "--version"),
+            _ => Task.FromResult(CopilotCliStatus.NotInstalled)
+        };
+    }
+
     public static async Task<CopilotCliStatus> CheckCopilotCliAsync()
     {
         var candidates = new[]
